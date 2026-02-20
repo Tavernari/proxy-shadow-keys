@@ -86,3 +86,25 @@ def verify_success_msg(cli_result):
     assert exit_code == 0
     assert "success" in out.lower() or "started" in out.lower() or "stopped" in out.lower() or "installed" in out.lower()
 
+@given('the proxy service is running with system proxy management enabled')
+def proxy_running_with_sys_proxy(run_cli, mock_subprocess_popen, mock_networksetup):
+    run_cli(["start"])
+    mock_networksetup.reset_mock() 
+
+@when('the mitmproxy background process terminates unexpectedly')
+def mitmproxy_terminates(mock_networksetup):
+    from proxy_shadow_keys.interceptor import addons
+    interceptor = addons[0]
+    class MockOptions:
+        manage_system_proxy = True
+    
+    import mitmproxy.ctx
+    mitmproxy.ctx.options = MockOptions()
+    if hasattr(interceptor, 'done'):
+        interceptor.done()
+
+@then('the macOS system proxy should be removed automatically')
+def verify_mac_proxy_removed_auto(mock_networksetup):
+    assert mock_networksetup.call_count > 0
+    called_off = any("off" in str(call_args) for call_args in mock_networksetup.call_args_list)
+    assert called_off

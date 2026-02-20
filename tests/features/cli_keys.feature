@@ -14,3 +14,9 @@ Feature: CLI Key Management
     When I run the CLI with "rm shadow_my_api"
     Then the key "shadow_my_api" should be removed from the system keyring
     And it should print a success message
+
+  Scenario: Set a new shadow key with an allowed host
+    Given the CLI is available
+    When I run the CLI with "set shadow_openai_key sk_live_12345 --allow-host *.openai.com"
+    Then the key "shadow_openai_key" should be stored with value "sk_live_12345" and allowed hosts "*.openai.com"
+    And it should print a success message

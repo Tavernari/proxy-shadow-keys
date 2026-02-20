@@ -21,3 +21,8 @@ Feature: CLI Proxy Service Management
     When I run the CLI with "install-cert"
     Then the mitmproxy certificate should be installed and trusted in the macOS Keychain
     And it should print a success message
+
+  Scenario: Proxy service auto-disables system proxy on shutdown
+    Given the proxy service is running with system proxy management enabled
+    When the mitmproxy background process terminates unexpectedly
+    Then the macOS system proxy should be removed automatically

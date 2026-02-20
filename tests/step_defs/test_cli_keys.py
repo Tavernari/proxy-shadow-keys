@@ -24,6 +24,7 @@ def cli_available():
 
 @given(parsers.parse('a shadow key "{key}" with value "{value}" is stored in the system keyring'))
 def store_shadow_key_in_keyring(key, value):
+    # Backward compatible store without allowed hosts
     keyring.set_password("proxy-shadow-keys", key, value)
     yield
     # Cleanup after test if needed
@@ -40,7 +41,21 @@ def run_cli_with_args(run_cli, args_str):
 @then(parsers.parse('the key "{key}" with value "{value}" should be stored in the system keyring'))
 def verify_key_in_keyring(key, value):
     stored_value = keyring.get_password("proxy-shadow-keys", key)
-    assert stored_value == value
+    # The value might be a json string now if there are allowed hosts
+    if stored_value and stored_value.startswith('{'):
+        import json
+        data = json.loads(stored_value)
+        assert data.get("value") == value
+    else:
+        assert stored_value == value
+
+@then(parsers.parse('the key "{key}" should be stored with value "{value}" and allowed hosts "{hosts}"'))
+def verify_key_with_hosts_in_keyring(key, value, hosts):
+    stored_value = keyring.get_password("proxy-shadow-keys", key)
+    import json
+    data = json.loads(stored_value)
+    assert data.get("value") == value
+    assert data.get("allowed_hosts") == hosts.split(",")
 
 @then(parsers.parse('the key "{key}" should be removed from the system keyring'))
 def verify_key_removed_from_keyring(key):

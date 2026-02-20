@@ -15,10 +15,13 @@ def main():
 @main.command()
 @click.argument('key')
 @click.argument('value')
-def set(key, value):
+@click.option('--allow-host', multiple=True, help='Limit this key to specific hosts (e.g. *.openai.com).')
+def set(key, value, allow_host):
     """Set a shadow key mapping in the secure vault."""
+    import json
     try:
-        keyring.set_password(APP_NAME, key, value)
+        data = {"value": value, "allowed_hosts": list(allow_host)}
+        keyring.set_password(APP_NAME, key, json.dumps(data))
         click.echo(f"Success: Key '{key}' stored securely.")
     except Exception as e:
         click.echo(f"Error storing key: {e}", err=True)
@@ -53,6 +56,9 @@ def start(port, no_system_proxy):
         
         # 1. Start Mitmproxy in the background (mitmdump for non-interactive)
         cmd = ["mitmdump", "-s", interceptor_path, "-p", str(port)]
+        if not no_system_proxy:
+            cmd.extend(["--set", "manage_system_proxy=true"])
+            
         proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
         # Give it a second to start

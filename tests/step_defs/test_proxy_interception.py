@@ -75,6 +75,34 @@ def verify_request_query_modified(expected_value, intercepted_flow):
 def verify_request_unchanged(intercepted_flow):
     assert "shadow_missing_key" in intercepted_flow.request.headers["Authorization"]
 
+@given(parsers.parse('a shadow key "{key}" with value "{value}" and allowed hosts "{hosts}" is stored in the system keyring'))
+def store_shadow_key_with_hosts(key, value, hosts):
+    import json
+    data = {"value": value, "allowed_hosts": hosts.split(",")}
+    keyring.set_password("proxy-shadow-keys", key, json.dumps(data))
+    yield
+    try:
+        keyring.delete_password("proxy-shadow-keys", key)
+    except:
+        pass
+
+@when(parsers.parse('an HTTP request is intercepted with a header containing "{key}" to host "{host}"'), target_fixture="intercepted_flow")
+def intercept_request_missing_key_to_host(key, host):
+    flow = tflow()
+    flow.request.host = host
+    flow.request.headers["Authorization"] = f"Bearer {key}"
+    interceptor = ShadowKeyInterceptor()
+    interceptor.request(flow)
+    return flow
+
+@then(parsers.parse('the request header should be modified to contain "{expected_value}"'))
+def verify_request_header_modified_gen(expected_value, intercepted_flow):
+    assert expected_value in intercepted_flow.request.headers["Authorization"]
+
+@then('the request header should remain unchanged')
+def verify_request_header_unchanged_gen(intercepted_flow):
+    assert "shadow_" in intercepted_flow.request.headers["Authorization"]
+
 @then('the request should be forwarded to the destination')
 @then('the request should be forwarded to the destination without errors')
 def verify_request_forwarded():
