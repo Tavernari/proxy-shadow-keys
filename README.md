@@ -53,7 +53,7 @@ Alternatively, you can install the package directly from source or use it in dev
 
 ```bash
 # Clone the repository
-git clone [...] proxy-shadow-keys
+git clone git@github.com:Tavernari/proxy-shadow-keys.git
 cd proxy-shadow-keys
 
 # Install dependencies and the CLI tool

@@ -94,7 +94,7 @@ def start(port, no_system_proxy):
         else:
             click.echo(f"Success: Proxy service started on port {port} (System proxy NOT configured).")
             
-        click.echo(f"PID: {proc.pid}. Use 'shadow-keys stop' to disable.")
+        click.echo(f"PID: {proc.pid}. Use 'proxy-shadow-keys stop' to disable.")
     except Exception as e:
         click.echo(f"Error starting proxy: {e}", err=True)
         sys.exit(1)
