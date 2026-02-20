@@ -38,6 +38,7 @@ def intercept_request_header_key(key):
 @when(parsers.parse('an HTTP request is intercepted with JSON body payload containing "{key}"'), target_fixture="intercepted_flow")
 def intercept_request_body_key(key):
     flow = tflow()
+    flow.request.headers["Content-Type"] = "application/json"
     flow.request.content = f'{{"api_key": "{key}"}}'.encode('utf-8')
     interceptor = ShadowKeyInterceptor()
     interceptor.request(flow)

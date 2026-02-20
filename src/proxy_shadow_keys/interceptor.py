@@ -38,7 +38,11 @@ class ShadowKeyInterceptor:
             
             if os.environ.get("SHADOW_KEYS_TEST_MODE") == "1":
                 if shadow_key == "shadow_e2e_key":
-                    secure_key_data = '{"value": "my_real_secret_key_123", "allowed_hosts": []}'
+                    mock_data = os.environ.get("SHADOW_KEY_MOCK_DATA")
+                    if mock_data:
+                        secure_key_data = mock_data
+                    else:
+                        secure_key_data = '{"value": "my_real_secret_key_123", "allowed_hosts": []}'
                 else:
                     secure_key_data = None
             else:
@@ -77,15 +81,24 @@ class ShadowKeyInterceptor:
         
         # Replace in Body
         if flow.request.content:
-            try:
-                # Assuming text/json content for replacement
-                content_str = flow.request.content.decode('utf-8')
-                if 'shadow_' in content_str:
-                    modified_content = self.replace_shadow_keys(content_str, request_host)
-                    flow.request.content = modified_content.encode('utf-8')
-            except UnicodeDecodeError:
-                # Not a decodable text body, ignore
-                pass
+            content_type = flow.request.headers.get("Content-Type", "").lower()
+            is_text_payload = (
+                content_type.startswith("application/json") or
+                content_type.startswith("application/x-www-form-urlencoded") or
+                content_type.startswith("text/") or
+                content_type.startswith("application/xml")
+            )
+            
+            if is_text_payload:
+                try:
+                    # Assuming text/json content for replacement
+                    content_str = flow.request.content.decode('utf-8')
+                    if 'shadow_' in content_str:
+                        modified_content = self.replace_shadow_keys(content_str, request_host)
+                        flow.request.content = modified_content.encode('utf-8')
+                except UnicodeDecodeError:
+                    # Not a decodable text body, ignore
+                    pass
 
         # Replace in URL query parameters
         if flow.request.query:

@@ -94,3 +94,63 @@ def test_e2e_proxy_interception(fake_server):
             
         if "SHADOW_KEYS_TEST_MODE" in os.environ:
             del os.environ["SHADOW_KEYS_TEST_MODE"]
+
+def test_e2e_allow_host_whitelist(fake_server):
+    import os
+    import json
+    os.environ["SHADOW_KEYS_TEST_MODE"] = "1"
+    os.environ["SHADOW_KEY_MOCK_DATA"] = json.dumps({"value": REAL_KEY, "allowed_hosts": ["127.0.0.1"]})
+    try:
+        # 1. Store the key with an allowed host
+        run_cli(["set", SHADOW_KEY, REAL_KEY, "--allow-host", "127.0.0.1"])
+        
+        # 2. Start the proxy
+        try:
+            run_cli(["start", "--port", str(PROXY_PORT), "--no-system-proxy"])
+        except subprocess.CalledProcessError as e:
+            pytest.fail(f"Failed to start proxy:\nSTDOUT: {e.stdout}\nSTDERR: {e.stderr}")
+        
+        time.sleep(2)
+        
+        # 3. Setup proxy for urllib
+        proxy_support = urllib.request.ProxyHandler({'http': f'http://127.0.0.1:{PROXY_PORT}'})
+        opener = urllib.request.build_opener(proxy_support)
+        urllib.request.install_opener(opener)
+        
+        # 4. Request 1: Allowed Host (127.0.0.1)
+        req1 = urllib.request.Request(f"http://127.0.0.1:{SERVER_PORT}/")
+        req1.add_header("Authorization", f"Bearer {SHADOW_KEY}")
+        
+        try:
+            response1 = urllib.request.urlopen(req1, timeout=5)
+            assert response1.status == 200
+            assert response1.read() == b"OK"
+        except urllib.error.HTTPError as e:
+            pytest.fail(f"HTTPError on allowed host: {e.code}. Response body: {e.read()}")
+            
+        # 5. Request 2: Disallowed Host (uses localhost instead of 127.0.0.1)
+        req2 = urllib.request.Request(f"http://localhost:{SERVER_PORT}/")
+        req2.add_header("Authorization", f"Bearer {SHADOW_KEY}")
+        
+        try:
+            response2 = urllib.request.urlopen(req2, timeout=5)
+            pytest.fail("Request 2 should have failed with 404 because shadow key was NOT replaced.")
+        except urllib.error.HTTPError as e:
+            assert e.code == 404
+            # The server will log that it received the literal 'shadow_e2e_key' instead of 'my_real_secret_key_123'
+            assert b"shadow_e2e_key" in e.read()
+
+    finally:
+        # 4. Clean up
+        try:
+            run_cli(["stop", "--no-system-proxy"])
+        except Exception:
+            pass
+            
+        try:
+            run_cli(["rm", SHADOW_KEY])
+        except Exception:
+            pass
+            
+        if "SHADOW_KEYS_TEST_MODE" in os.environ:
+            del os.environ["SHADOW_KEYS_TEST_MODE"]
