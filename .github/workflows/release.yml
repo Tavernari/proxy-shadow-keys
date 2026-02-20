@@ -6,12 +6,12 @@ on:
       - 'v*.*.*'
 
 jobs:
-  build_and_release:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
-      
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
     steps:
     - uses: actions/checkout@v4
     
@@ -31,7 +31,6 @@ jobs:
     - name: Get pyproject.toml version
       id: get_toml_version
       run: |
-        # Use python standard library to parse basic toml version string
         TOML_VERSION=$(python -c "
         import sys
         try:
@@ -72,11 +71,44 @@ jobs:
           dist/*.whl
           dist/*.tar.gz
 
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-artifacts
+        path: dist/
+
+  publish-pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-artifacts
+        path: dist/
     - name: Publish package to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         skip-existing: true
 
+  publish-github:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-artifacts
+        path: dist/
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
     - name: Publish package to GitHub Packages
       run: |
         export TWINE_USERNAME=${{ github.actor }}
