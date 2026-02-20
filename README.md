@@ -86,13 +86,6 @@ cd proxy-shadow-keys
 pip install -e .
 ```
 
-### GitHub Package Registry
-
-You can also install the package directly from the GitHub Container/Package Registry:
-
-```bash
-pip install git+https://github.com/Tavernari/proxy-shadow-keys.git
-```
 
 ## Usage
 
