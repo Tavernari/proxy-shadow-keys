@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "bdd-patterns": {
+      "source": "thebushidocollective/han",
+      "sourceType": "github",
+      "computedHash": "568efbb372f2c9f180c68fe37a52303a47192afaa1a739a9dfba3bcc8eff464c"
+    }
+  }
+}
