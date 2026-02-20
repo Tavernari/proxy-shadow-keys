@@ -1,0 +1,72 @@
+name: Release on Tag
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Get Tag Version
+      id: get_version
+      run: |
+        TAG_VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+        echo "Extracted tag version: $TAG_VERSION"
+
+    - name: Get pyproject.toml version
+      id: get_toml_version
+      run: |
+        # Use python standard library to parse basic toml version string
+        TOML_VERSION=$(python -c "
+import sys
+try:
+    with open('pyproject.toml', 'r') as f:
+        for line in f:
+            if line.startswith('version ='):
+                print(line.split('=')[1].strip().strip('\"\''))
+                sys.exit(0)
+except Exception as e:
+    print(e)
+    sys.exit(1)
+        ")
+        echo "toml_version=$TOML_VERSION" >> $GITHUB_OUTPUT
+        echo "Extracted pyproject.toml version: $TOML_VERSION"
+
+    - name: Validate Versions
+      run: |
+        if [ "${{ steps.get_version.outputs.version }}" != "${{ steps.get_toml_version.outputs.toml_version }}" ]; then
+          echo "Error: Tag version (${{ steps.get_version.outputs.version }}) does not match pyproject.toml version (${{ steps.get_toml_version.outputs.toml_version }})"
+          exit 1
+        fi
+        echo "Versions match. Proceeding..."
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+        
+    - name: Build package
+      run: |
+        python -m build
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        generate_release_notes: true
+        files: |
+          dist/*.whl
+          dist/*.tar.gz
