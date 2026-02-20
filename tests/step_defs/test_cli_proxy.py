@@ -1,29 +1,53 @@
 import pytest
 from pytest_bdd import scenarios, given, when, then, parsers
 from proxy_shadow_keys import cli
+from unittest.mock import patch, MagicMock
 
 scenarios("../features/cli_proxy.feature")
 
 @pytest.fixture
-def run_cli(capsys):
+def mock_subprocess():
+    with patch("subprocess.run") as mock_run:
+        yield mock_run
+
+@pytest.fixture
+def mock_subprocess_popen():
+    with patch("subprocess.Popen") as mock_popen:
+        mock_process = MagicMock()
+        mock_process.pid = 1234
+        mock_process.poll.return_value = None
+        mock_popen.return_value = mock_process
+        yield mock_popen
+
+@pytest.fixture
+def mock_networksetup():
+    with patch("proxy_shadow_keys.mac_proxy.MacOSProxyManager._run_networksetup") as mock_ns:
+        # Simulate an active service
+        mock_ns.return_value = "Wi-Fi"
+        yield mock_ns
+
+@pytest.fixture
+def mock_os_path_exists():
+    with patch("os.path.exists") as mock_exists:
+        mock_exists.return_value = True
+        yield mock_exists
+
+@pytest.fixture
+def run_cli(capsys, mock_subprocess, mock_subprocess_popen, mock_networksetup, mock_os_path_exists):
+    from click.testing import CliRunner
+    runner = CliRunner()
     def _run(args):
-        try:
-            exit_code = cli.main(args)
-        except SystemExit as e:
-            exit_code = e.code
-        
-        captured = capsys.readouterr()
-        return exit_code, captured.out, captured.err
+        # Using CliRunner for consistent click testing
+        result = runner.invoke(cli.main, args)
+        return result.exit_code, result.output, ""
     return _run
 
 @given('the proxy service is not running')
 def proxy_not_running():
-    # Helper to ensure proxy is not running
     pass
 
 @given('the proxy service is running')
 def proxy_running():
-    # Helper to start proxy or mock it
     pass
 
 @when(parsers.parse('I run the CLI with "{args_str}"'), target_fixture="cli_result")
@@ -32,25 +56,27 @@ def run_cli_with_args(run_cli, args_str):
     return run_cli(args)
 
 @then('the mitmproxy service should start in the background')
-def verify_proxy_started():
-    # Assert mechanism to verify process is spawned
-    pass
+def verify_proxy_started(mock_subprocess_popen):
+    mock_subprocess_popen.assert_called_once()
+    assert "mitmdump" in mock_subprocess_popen.call_args[0][0]
 
 @then('the macOS system proxy should be configured to use the proxy service')
-def verify_mac_proxy_configured():
-    # Assert networksetup was called
-    pass
+def verify_mac_proxy_configured(mock_networksetup):
+    # Verify the proxy manager called networksetup to configure proxy
+    assert mock_networksetup.call_count > 0
 
 @then('the mitmproxy service should stop')
-def verify_proxy_stopped():
-    pass
+def verify_proxy_stopped(mock_subprocess):
+    # Check if pkill was called
+    called = any("pkill" in call_args[0][0] for call_args in mock_subprocess.call_args_list)
+    assert called
 
 @then('the macOS system proxy should be removed')
-def verify_mac_proxy_removed():
-    pass
+def verify_mac_proxy_removed(mock_networksetup):
+    assert mock_networksetup.call_count > 0
 
 @then('the mitmproxy certificate should be installed and trusted in the macOS Keychain')
-def verify_cert_installed():
+def verify_cert_installed(mock_subprocess):
     pass
 
 @then('it should print a success message')
@@ -58,3 +84,4 @@ def verify_success_msg(cli_result):
     exit_code, out, err = cli_result
     assert exit_code == 0
     assert "success" in out.lower() or "started" in out.lower() or "stopped" in out.lower() or "installed" in out.lower()
+
