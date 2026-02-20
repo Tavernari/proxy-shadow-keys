@@ -32,16 +32,16 @@ jobs:
       run: |
         # Use python standard library to parse basic toml version string
         TOML_VERSION=$(python -c "
-import sys
-try:
-    with open('pyproject.toml', 'r') as f:
-        for line in f:
-            if line.startswith('version ='):
-                print(line.split('=')[1].strip().strip('\"\''))
-                sys.exit(0)
-except Exception as e:
-    print(e)
-    sys.exit(1)
+        import sys
+        try:
+            with open('pyproject.toml', 'r') as f:
+                for line in f:
+                    if line.startswith('version ='):
+                        print(line.split('=')[1].strip().strip('\"\''))
+                        sys.exit(0)
+        except Exception as e:
+            print(e)
+            sys.exit(1)
         ")
         echo "toml_version=$TOML_VERSION" >> $GITHUB_OUTPUT
         echo "Extracted pyproject.toml version: $TOML_VERSION"
