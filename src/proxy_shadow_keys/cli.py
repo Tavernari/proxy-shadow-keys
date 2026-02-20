@@ -68,6 +68,24 @@ def start(port, no_system_proxy):
              click.echo("Error: mitmproxy failed to start.", err=True)
              sys.exit(1)
 
+        # 1b. Write PID to a tracking file
+        pid_file = os.path.expanduser("~/.mitmproxy/proxy_shadow_keys.pid")
+        os.makedirs(os.path.dirname(pid_file), exist_ok=True)
+        with open(pid_file, "w") as f:
+            f.write(str(proc.pid))
+            
+        # 1c. Spawn watchdog daemon
+        cmd_watchdog = [sys.executable, "-m", "proxy_shadow_keys.cli", "watchdog", str(proc.pid), str(port)]
+        if not no_system_proxy:
+            cmd_watchdog.append("--manage-system-proxy")
+            
+        subprocess.Popen(
+            cmd_watchdog,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True # Detach from terminal
+        )
+
         # 2. Configure System Proxy (unless skipped)
         if not no_system_proxy:
             manager = get_system_proxy_manager(port=port)
@@ -94,11 +112,39 @@ def stop(no_system_proxy):
             manager = get_system_proxy_manager()
             manager.disable_proxy()
 
-        # 2. Stop Mitmproxy (naively kill mitmdump processes)
+        # 2. Stop Mitmproxy (prefer PID file tracking for safety)
         import os
+        import signal
+        import time
         import proxy_shadow_keys
-        interceptor_path = os.path.join(os.path.dirname(proxy_shadow_keys.__file__), "interceptor.py")
-        subprocess.run(["pkill", "-f", f"mitmdump -s {interceptor_path}"], check=False)
+        
+        pid_file = os.path.expanduser("~/.mitmproxy/proxy_shadow_keys.pid")
+        stopped = False
+        
+        if os.path.exists(pid_file):
+            try:
+                with open(pid_file, "r") as f:
+                    pid = int(f.read().strip())
+                
+                os.kill(pid, signal.SIGTERM)
+                
+                # Wait for process to fully release the port
+                for _ in range(25): # 5 seconds max
+                    time.sleep(0.2)
+                    try:
+                        os.kill(pid, 0)
+                    except ProcessLookupError:
+                        stopped = True
+                        break
+                        
+                os.remove(pid_file)
+            except Exception as e:
+                click.echo(f"Warning: Failed to stop proxy cleanly via PID: {e}")
+                
+        # Fallback to pkill if PID file method failed or file was missing
+        if not stopped:
+            interceptor_path = os.path.join(os.path.dirname(proxy_shadow_keys.__file__), "interceptor.py")
+            subprocess.run(["pkill", "-f", f"mitmdump -s {interceptor_path}"], check=False)
         
         if not no_system_proxy:
             click.echo("Success: Proxy service stopped and system proxy disabled.")
@@ -132,6 +178,34 @@ def install_cert():
     except subprocess.CalledProcessError as e:
         click.echo(f"Error installing certificate: {e}", err=True)
         sys.exit(1)
+
+@main.command(hidden=True)
+@click.argument('pid', type=int)
+@click.argument('port', type=int)
+@click.option('--manage-system-proxy', is_flag=True)
+def watchdog(pid, port, manage_system_proxy):
+    """Hidden background daemon: disables system proxy if mitmdump dies unexpectedly."""
+    import os
+    import time
+    from proxy_shadow_keys.system_proxy import get_system_proxy_manager
+    
+    # Wait for the parent to finish bootstrapping proxy if needed
+    time.sleep(2)
+    
+    while True:
+        try:
+            # Poll process existence
+            os.kill(pid, 0)
+            time.sleep(2)
+        except ProcessLookupError:
+            # The proxy process died! (e.g. killed via task manager, OOM, kill -9)
+            if manage_system_proxy:
+                try:
+                    manager = get_system_proxy_manager(port=port)
+                    manager.disable_proxy()
+                except Exception:
+                    pass
+            break
 
 if __name__ == "__main__":
     main()

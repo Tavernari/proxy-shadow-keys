@@ -26,3 +26,17 @@ Feature: CLI Proxy Service Management
     Given the proxy service is running with system proxy management enabled
     When the mitmproxy background process terminates unexpectedly
     Then the macOS system proxy should be removed automatically
+
+  Scenario: Safe proxy termination using PID tracking
+    Given the proxy service is not running
+    When I run the CLI with "start"
+    Then it should save the proxy PID to a tracker file
+    When I run the CLI with "stop"
+    Then it should terminate the process using the tracked PID
+    And it should remove the PID tracker file
+
+  Scenario: Watchdog auto-disables proxy on SIGKILL
+    Given the proxy service is running with a watchdog
+    When the mitmproxy process is forcefully killed
+    Then the watchdog should automatically remove the system proxy
+    And the watchdog process should terminate
