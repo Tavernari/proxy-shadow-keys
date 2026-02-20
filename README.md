@@ -49,15 +49,49 @@ uv tool install proxy-shadow-keys
 pipx install proxy-shadow-keys
 ```
 
-Alternatively, you can install the package directly from source or use it in development mode:
+### Standard Installation
+
+You can install `proxy-shadow-keys` via `pip`:
+
+```bash
+pip install proxy-shadow-keys
+```
+
+### Recommended: Using pipx
+
+For CLI tools, it's recommended to use [pipx](https://github.com/pypa/pipx) to keep dependencies isolated:
+
+```bash
+pipx install proxy-shadow-keys
+```
+
+### One-liner (curl)
+
+If you have `pip` installed, you can use this one-liner to download and install the latest version directly:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Tavernari/proxy-shadow-keys/main/scripts/install.sh | bash
+```
+
+### Development or Source Installation
+
+If you want to contribute or use the latest unreleased changes:
 
 ```bash
 # Clone the repository
 git clone git@github.com:Tavernari/proxy-shadow-keys.git
 cd proxy-shadow-keys
 
-# Install dependencies and the CLI tool
+# Install in editable mode
 pip install -e .
+```
+
+### GitHub Package Registry
+
+You can also install the package directly from the GitHub Container/Package Registry:
+
+```bash
+pip install git+https://github.com/Tavernari/proxy-shadow-keys.git
 ```
 
 ## Usage
