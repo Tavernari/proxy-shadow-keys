@@ -1,20 +1,17 @@
 import pytest
 from pytest_bdd import scenarios, when, then
 from proxy_shadow_keys import cli, __version__
+from click.testing import CliRunner
 
 # Load all scenarios from the feature file
 scenarios("../features/cli.feature")
 
 @pytest.fixture
-def run_cli(capsys):
+def run_cli():
+    runner = CliRunner()
     def _run(args):
-        try:
-            exit_code = cli.main(args)
-        except SystemExit as e:
-            exit_code = e.code
-        
-        captured = capsys.readouterr()
-        return exit_code, captured.out, captured.err
+        result = runner.invoke(cli.main, args)
+        return result.exit_code, result.output, ""
     return _run
 
 @when('I run the CLI with "--version"', target_fixture="cli_result")
@@ -33,7 +30,8 @@ def verify_version_output(cli_result):
 @then('it should print the welcome message')
 def verify_welcome_output(cli_result):
     _, out, _ = cli_result
-    assert "Welcome to proxy-shadow-keys CLI!" in out
+    assert "CLI tool to manage proxy shadow keys" in out
+
 
 @then('exit with code 0')
 def verify_exit_code(cli_result):
