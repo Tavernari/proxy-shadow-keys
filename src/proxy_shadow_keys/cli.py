@@ -39,15 +39,20 @@ def rm(key):
 
 @main.command()
 @click.option('--port', default=8080, help='Port to run the proxy on.')
-def start(port):
+@click.option('--no-system-proxy', is_flag=True, help='Skip configuring the OS system proxy.')
+def start(port, no_system_proxy):
     """Start the proxy service and configure system proxy."""
     import subprocess
     import time
     from proxy_shadow_keys.system_proxy import get_system_proxy_manager
 
     try:
+        import os
+        import proxy_shadow_keys
+        interceptor_path = os.path.join(os.path.dirname(proxy_shadow_keys.__file__), "interceptor.py")
+        
         # 1. Start Mitmproxy in the background (mitmdump for non-interactive)
-        cmd = ["mitmdump", "-s", "src/proxy_shadow_keys/interceptor.py", "-p", str(port)]
+        cmd = ["mitmdump", "-s", interceptor_path, "-p", str(port)]
         proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
         # Give it a second to start
@@ -57,31 +62,42 @@ def start(port):
              click.echo("Error: mitmproxy failed to start.", err=True)
              sys.exit(1)
 
-        # 2. Configure System Proxy
-        manager = get_system_proxy_manager(port=port)
-        manager.enable_proxy()
-        
-        click.echo(f"Success: Proxy service started in the background on port {port}.")
+        # 2. Configure System Proxy (unless skipped)
+        if not no_system_proxy:
+            manager = get_system_proxy_manager(port=port)
+            manager.enable_proxy()
+            click.echo(f"Success: Proxy service started in the background out port {port} and system proxy configured.")
+        else:
+            click.echo(f"Success: Proxy service started on port {port} (System proxy NOT configured).")
+            
         click.echo(f"PID: {proc.pid}. Use 'shadow-keys stop' to disable.")
     except Exception as e:
         click.echo(f"Error starting proxy: {e}", err=True)
         sys.exit(1)
 
 @main.command()
-def stop():
+@click.option('--no-system-proxy', is_flag=True, help='Skip modifying the OS system proxy.')
+def stop(no_system_proxy):
     """Stop the proxy service and restore system proxy."""
     import subprocess
     from proxy_shadow_keys.system_proxy import get_system_proxy_manager
 
     try:
-        # 1. Disable System Proxy
-        manager = get_system_proxy_manager()
-        manager.disable_proxy()
+        # 1. Disable System Proxy (unless skipped)
+        if not no_system_proxy:
+            manager = get_system_proxy_manager()
+            manager.disable_proxy()
 
         # 2. Stop Mitmproxy (naively kill mitmdump processes)
-        subprocess.run(["pkill", "-f", "mitmdump -s src/proxy_shadow_keys/interceptor.py"], check=False)
+        import os
+        import proxy_shadow_keys
+        interceptor_path = os.path.join(os.path.dirname(proxy_shadow_keys.__file__), "interceptor.py")
+        subprocess.run(["pkill", "-f", f"mitmdump -s {interceptor_path}"], check=False)
         
-        click.echo("Success: Proxy service stopped and system proxy disabled.")
+        if not no_system_proxy:
+            click.echo("Success: Proxy service stopped and system proxy disabled.")
+        else:
+            click.echo("Success: Proxy service stopped.")
     except Exception as e:
          click.echo(f"Error stopping proxy: {e}", err=True)
          sys.exit(1)
