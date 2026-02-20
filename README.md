@@ -39,7 +39,17 @@ proxy-shadow-keys/
 
 ## Installation
 
-You can install the package directly or use it in development mode:
+The recommended way to install and run the CLI globally in an isolated environment is using `pipx` or `uv`:
+
+```bash
+# Using uv (fastest)
+uv tool install proxy-shadow-keys
+
+# Or using pipx
+pipx install proxy-shadow-keys
+```
+
+Alternatively, you can install the package directly from source or use it in development mode:
 
 ```bash
 # Clone the repository
