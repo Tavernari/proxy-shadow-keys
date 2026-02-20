@@ -43,7 +43,7 @@ def start(port):
     """Start the proxy service and configure system proxy."""
     import subprocess
     import time
-    from proxy_shadow_keys.mac_proxy import MacOSProxyManager
+    from proxy_shadow_keys.system_proxy import get_system_proxy_manager
 
     try:
         # 1. Start Mitmproxy in the background (mitmdump for non-interactive)
@@ -58,7 +58,7 @@ def start(port):
              sys.exit(1)
 
         # 2. Configure System Proxy
-        manager = MacOSProxyManager(port=port)
+        manager = get_system_proxy_manager(port=port)
         manager.enable_proxy()
         
         click.echo(f"Success: Proxy service started in the background on port {port}.")
@@ -71,11 +71,11 @@ def start(port):
 def stop():
     """Stop the proxy service and restore system proxy."""
     import subprocess
-    from proxy_shadow_keys.mac_proxy import MacOSProxyManager
+    from proxy_shadow_keys.system_proxy import get_system_proxy_manager
 
     try:
         # 1. Disable System Proxy
-        manager = MacOSProxyManager()
+        manager = get_system_proxy_manager()
         manager.disable_proxy()
 
         # 2. Stop Mitmproxy (naively kill mitmdump processes)

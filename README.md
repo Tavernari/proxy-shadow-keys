@@ -18,7 +18,7 @@ proxy-shadow-keys/
 │   └── proxy_shadow_keys/
 │       ├── cli.py            # Click-based CLI commands (set, rm, start, stop, install-cert)
 │       ├── interceptor.py    # mitmproxy addon that intercepts and replaces shadow keys
-│       └── mac_proxy.py      # macOS networksetup utility to toggle system proxy settings
+│       └── system_proxy.py   # Cross-platform utility to toggle system proxy settings (Windows, macOS, Linux)
 ├── tests/
 │   ├── features/             # Behavior-Driven Development (BDD) feature specifications
 │   └── step_defs/            # pytest-bdd step definitions
@@ -27,13 +27,13 @@ proxy-shadow-keys/
 
 ## How It Works
 
-1. **Store Keys**: Use the CLI to store a real key mapping in your system's keyring (macOS Keychain).
-2. **Start Proxy**: The CLI starts a local `mitmproxy` instance in the background and configures your macOS system proxy to route traffic through it.
+1. **Store Keys**: Use the CLI to store a real key mapping in your system's keyring (macOS Keychain, Windows Credential Locker, or Linux Secret Service).
+2. **Start Proxy**: The CLI starts a local `mitmproxy` instance in the background and configures your OS system proxy (macOS `networksetup`, Windows Registry, or Linux `gsettings`) to route traffic through it.
 3. **Intercept & Replace**: As your system makes HTTP/HTTPS requests, the mitmproxy addon parses request headers, JSON bodies, and URL query parameters. When it detects a string starting with `shadow_`, it queries the local keyring to swap the placeholder with the real API key before forwarding the request to its destination.
 
 ## Requirements
 
-- macOS (utilizes `networksetup` and macOS Keychain heavily)
+- macOS, Windows, or Linux (GNOME)
 - Python 3.9+
 - `mitmproxy` installed and available
 
@@ -86,14 +86,14 @@ proxy-shadow-keys rm shadow_openai_key
 
 ### 3. Proxy Lifecycle
 
-Start the proxy. This will launch `mitmproxy` in the background and configure your macOS network settings to use the local proxy:
+Start the proxy. This will launch `mitmproxy` in the background and configure your local network settings to use the local proxy:
 
 ```bash
 proxy-shadow-keys start
 ```
 *(Default port is 8080. You can optionally pass `--port 8081`)*
 
-When you're done, stop the proxy to restore your standard macOS network settings:
+When you're done, stop the proxy to restore your standard network settings:
 
 ```bash
 proxy-shadow-keys stop

@@ -21,7 +21,7 @@ def mock_subprocess_popen():
 
 @pytest.fixture
 def mock_networksetup():
-    with patch("proxy_shadow_keys.mac_proxy.MacOSProxyManager._run_networksetup") as mock_ns:
+    with patch("proxy_shadow_keys.system_proxy.MacOSProxyManager._run_networksetup") as mock_ns:
         # Simulate an active service
         mock_ns.return_value = "Wi-Fi"
         yield mock_ns
@@ -38,8 +38,9 @@ def run_cli(capsys, mock_subprocess, mock_subprocess_popen, mock_networksetup, m
     runner = CliRunner()
     def _run(args):
         # Using CliRunner for consistent click testing
-        result = runner.invoke(cli.main, args)
-        return result.exit_code, result.output, ""
+        with patch("sys.platform", "darwin"):
+            result = runner.invoke(cli.main, args)
+            return result.exit_code, result.output, ""
     return _run
 
 @given('the proxy service is not running')
