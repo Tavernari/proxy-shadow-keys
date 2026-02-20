@@ -76,3 +76,11 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         skip-existing: true
+
+    - name: Publish package to GitHub Packages
+      run: |
+        export TWINE_USERNAME=${{ github.actor }}
+        export TWINE_PASSWORD=${{ secrets.GITHUB_TOKEN }}
+        export TWINE_REPOSITORY_URL=https://pypi.pkg.github.com/${{ github.repository_owner }}/${{ github.event.repository.name }}
+        pip install twine
+        twine upload --skip-existing dist/*
