@@ -25,6 +25,36 @@ class E2EHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(f"Not Found. Got: {auth_header}".encode())
             
+    def do_POST(self):
+        content_length_str = self.headers.get('Content-Length')
+        if not content_length_str:
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(b"No Content-Length")
+            return
+            
+        content_length = int(content_length_str)
+        post_data = self.rfile.read(content_length)
+        
+        if self.path == "/json":
+            expected = f'{{"api_key": "{REAL_KEY}"}}'.encode('utf-8')
+        elif self.path == "/binary":
+            # For binary the string "shadow_e2e_key" should remain unchanged
+            expected = b'\x00\x01' + SHADOW_KEY.encode('utf-8') + b'\xff'
+        else:
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b"Not Found")
+            return
+            
+        if post_data == expected:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"POST OK")
+        else:
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(f"Bad Request. Got: {post_data}".encode())            
     def log_message(self, format, *args):
         # Suppress logging to keep test output clean
         pass
@@ -142,6 +172,65 @@ def test_e2e_allow_host_whitelist(fake_server):
 
     finally:
         # 4. Clean up
+        try:
+            run_cli(["stop", "--no-system-proxy"])
+        except Exception:
+            pass
+            
+        try:
+            run_cli(["rm", SHADOW_KEY])
+        except Exception:
+            pass
+            
+        if "SHADOW_KEYS_TEST_MODE" in os.environ:
+            del os.environ["SHADOW_KEYS_TEST_MODE"]
+
+def test_e2e_smart_payload_replacement(fake_server):
+    import os
+    os.environ["SHADOW_KEYS_TEST_MODE"] = "1"
+    try:
+        # 1. Store the key
+        run_cli(["set", SHADOW_KEY, REAL_KEY])
+        
+        # 2. Start the proxy
+        try:
+            run_cli(["start", "--port", str(PROXY_PORT), "--no-system-proxy"])
+        except subprocess.CalledProcessError as e:
+            pytest.fail(f"Failed to start proxy:\nSTDOUT: {e.stdout}\nSTDERR: {e.stderr}")
+        
+        time.sleep(2)
+        
+        # 3. Setup proxy for urllib
+        proxy_support = urllib.request.ProxyHandler({'http': f'http://127.0.0.1:{PROXY_PORT}'})
+        opener = urllib.request.build_opener(proxy_support)
+        urllib.request.install_opener(opener)
+        
+        # 4. Request 1: JSON Request (should be replaced)
+        req_json = urllib.request.Request(f"http://127.0.0.1:{SERVER_PORT}/json", method="POST")
+        req_json.add_header("Content-Type", "application/json")
+        json_data = f'{{"api_key": "{SHADOW_KEY}"}}'.encode('utf-8')
+        
+        try:
+            response_json = urllib.request.urlopen(req_json, data=json_data, timeout=5)
+            assert response_json.status == 200
+            assert response_json.read() == b"POST OK"
+        except urllib.error.HTTPError as e:
+            pytest.fail(f"HTTPError on JSON POST: {e.code}. Response body: {e.read()}")
+            
+        # 5. Request 2: Binary Request (should NOT be replaced)
+        req_bin = urllib.request.Request(f"http://127.0.0.1:{SERVER_PORT}/binary", method="POST")
+        req_bin.add_header("Content-Type", "application/octet-stream")
+        bin_data = b'\x00\x01' + SHADOW_KEY.encode('utf-8') + b'\xff'
+        
+        try:
+            response_bin = urllib.request.urlopen(req_bin, data=bin_data, timeout=5)
+            assert response_bin.status == 200
+            assert response_bin.read() == b"POST OK"
+        except urllib.error.HTTPError as e:
+            pytest.fail(f"HTTPError on Binary POST: {e.code}. Response body: {e.read()}")
+
+    finally:
+        # 6. Clean up
         try:
             run_cli(["stop", "--no-system-proxy"])
         except Exception:
