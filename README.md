@@ -111,7 +111,18 @@ To remove a mapped key:
 proxy-shadow-keys rm shadow_openai_key
 ```
 
-### 3. Proxy Lifecycle
+### 3. Restricting Keys to Specific Hosts
+
+For extra security, you can restrict a shadow key to only be active for specific domains. This prevents accidental leakage if a different service tries to use the same common shadow key name:
+
+```bash
+# Only allow this key for OpenAI requests
+proxy-shadow-keys set shadow_openai_key sk-proj-123... --allow-host "*.openai.com" --allow-host "api.openai.com"
+```
+
+*(You can use multiple `--allow-host` flags to whitelist several domains. If no host is specified, the key is global)*
+
+### 4. Proxy Lifecycle
 
 Start the proxy. This will launch `mitmproxy` in the background and configure your local network settings to use the local proxy:
 
