@@ -1,5 +1,7 @@
 # Proxy Shadow Keys
 
+![Proxy Shadow Keys Example](images/example.jpg)
+
 A CLI tool and local proxy service designed to intercept network requests and transparently replace "shadow keys" (e.g., `shadow_my_api_key`) with your real, secret keys stored securely in the macOS Keychain.
 
 This tool allows developers to use placeholder keys in their application code or environment files, preventing accidental exposure or commits of sensitive API keys to version control.
