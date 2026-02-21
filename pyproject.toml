@@ -7,6 +7,7 @@ name = "proxy-shadow-keys"
 version = "0.1.5"
 description = "CLI tool to manage proxy shadow keys"
 readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.9"
 dependencies = [
     "click>=8.1.7",
